@@ -1,0 +1,28 @@
+{
+  "name": "userauthenticationtesting",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/dune123/userAuthenticationTesting#readme",
+  "bugs": {
+    "url": "https://github.com/dune123/userAuthenticationTesting/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dune123/userAuthenticationTesting.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "./src/index.js",
+  "scripts": {
+    "test": "nodemon ./src/index.js",
+    "dev":"nodemon ./src/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.6.1",
+    "nodemon": "^3.1.14"
+  }
+}
