@@ -4,6 +4,11 @@ import { ApiError } from "../utils/api-error.js";
 import { asyncHandler } from "../utils/async-handler.js";
 import jwt from "jsonwebtoken";
 
+const cookieOptions = {
+  httpOnly: true,
+  secure: true,
+};
+
 const generateAccessAndRefreshTokens = async (userId) => {
   const user = await User.findById(userId);
   if (!user) {
@@ -82,15 +87,10 @@ const login = asyncHandler(async (req, res) => {
 
   const loggedInUser = await User.findById(user._id);
 
-  const options = {
-    httpOnly: true,
-    secure: true,
-  };
-
   return res
     .status(200)
-    .cookie("accessToken", accessToken, options)
-    .cookie("refreshToken", refreshToken, options)
+    .cookie("accessToken", accessToken, cookieOptions)
+    .cookie("refreshToken", refreshToken, cookieOptions)
     .json(
       new ApiResponse(
         200,
@@ -100,6 +100,56 @@ const login = asyncHandler(async (req, res) => {
           refreshToken,
         },
         "User logged in successfully",
+      ),
+    );
+});
+
+const refreshAccessToken = asyncHandler(async (req, res) => {
+  const incomingRefreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
+
+  if (!incomingRefreshToken) {
+    throw new ApiError(401, "Refresh token is required");
+  }
+
+  if (!process.env.REFRESH_TOKEN_SECRET) {
+    throw new ApiError(500, "Refresh token secret is not configured");
+  }
+
+  let decodedToken;
+  try {
+    decodedToken = jwt.verify(incomingRefreshToken, process.env.REFRESH_TOKEN_SECRET);
+  } catch (error) {
+    throw new ApiError(401, "Invalid or expired refresh token");
+  }
+
+  const user = await User.findById(decodedToken?._id);
+  if (!user) {
+    throw new ApiError(401, "Invalid refresh token");
+  }
+
+  if (!user.refreshToken) {
+    throw new ApiError(401, "Session does not exist. Please login again");
+  }
+
+  if (incomingRefreshToken !== user.refreshToken) {
+    // Token reuse attempt (or already rotated token): invalidate current session.
+    user.refreshToken = "";
+    await user.save({ validateBeforeSave: false });
+    throw new ApiError(401, "Refresh token is expired or already used");
+  }
+
+  const { accessToken, refreshToken: newRefreshToken } =
+    await generateAccessAndRefreshTokens(user._id);
+
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, cookieOptions)
+    .cookie("refreshToken", newRefreshToken, cookieOptions)
+    .json(
+      new ApiResponse(
+        200,
+        { accessToken, refreshToken: newRefreshToken },
+        "Access token refreshed successfully",
       ),
     );
 });
@@ -117,16 +167,18 @@ const logout = asyncHandler(async (req, res) => {
     },
   );
 
-  const options = {
-    httpOnly: true,
-    secure: true,
-  };
-
   return res
     .status(200)
-    .clearCookie("accessToken", options)
-    .clearCookie("refreshToken", options)
+    .clearCookie("accessToken", cookieOptions)
+    .clearCookie("refreshToken", cookieOptions)
     .json(new ApiResponse(200, {}, "User logged out"));
 });
 
-export { registerUser, login, logout };
+const getLoggedInUser = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id).select("-password -refreshToken");
+  return res
+    .status(200)
+    .json(new ApiResponse(200, { user }, "Logged in user fetched successfully"));
+});
+
+export { registerUser, login, refreshAccessToken, logout, getLoggedInUser };
