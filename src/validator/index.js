@@ -1,4 +1,8 @@
 import { body } from "express-validator";
+
+const enterprisePasswordRegex =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d])[A-Za-z\d^$*.[\]{}()?"!@#%&/\\,><':;|_~`+=-]{12,128}$/;
+
 const userRegisterValidator = () => {
   return [
     body("email")
@@ -7,21 +11,25 @@ const userRegisterValidator = () => {
       .withMessage("Email is required")
       .isEmail()
       .withMessage("Email is invalid"),
-    body("username")
+    body("password")
       .trim()
       .notEmpty()
-      .withMessage("Username is required")
-      .isLowercase()
-      .withMessage("Username must be in lower case")
-      .isLength({ min: 3 })
-      .withMessage("Username must be at least 3 characters long"),
-    body("password").trim().notEmpty().withMessage("Password is required"),
+      .withMessage("Password is required")
+      .matches(enterprisePasswordRegex)
+      .withMessage(
+        "Password must be 12-128 chars and include uppercase, lowercase, number, and special character",
+      ),
   ];
 };
 
 const userLoginValidator = () => {
   return [
-    body("email").optional().isEmail().withMessage("Email is invalid"),
+    body("email")
+      .trim()
+      .notEmpty()
+      .withMessage("Email is required")
+      .isEmail()
+      .withMessage("Email is invalid"),
     body("password").notEmpty().withMessage("Password is required"),
   ];
 };

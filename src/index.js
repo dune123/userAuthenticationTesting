@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import connectDB from "./db/index.js";
 import cookieParser from "cookie-parser";
 import { ApiError } from "./utils/api-error.js";
-import rateLimit from "express-rate-limit"
+import { connectRedis } from "./utils/redis-client.js";
 //import routes
 import healthCheckRouter from "./routes/health.routes.js";
 import userRouter from "./routes/user.routes.js";
@@ -13,18 +13,13 @@ dotenv.config({
   path: ".env",
 });
 const app = express();
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-});
-
+app.set("trust proxy", 1);
 
 // basic configurations
 app.use(express.json({ limit: "16kb" }));
 app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 app.use(express.static("public"));
 app.use(cookieParser());
-app.use(limiter);
 
 // cors configurations
 app.use(
@@ -58,11 +53,11 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
-connectDB().then(() => {
+Promise.all([connectDB(), connectRedis()]).then(() => {
   app.listen(PORT, () => {
-    console.log("app is listening on port 3000");
+    console.log(`app is listening on port ${PORT}`);
   });
-}).catch(((err) => {
+}).catch((err) => {
     console.error("MongoDB connection error", err);
     process.exit(1);
-}));
+});
